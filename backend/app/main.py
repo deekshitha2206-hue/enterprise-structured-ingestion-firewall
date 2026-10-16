@@ -1,18 +1,18 @@
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from app.schemas.ingestion import IngestionRequest, IngestionResult
-from app.services.llm_service import analyze_message
+from app.services.llm_service import analyze_message, generate_response
 from app.utils.token_counter import estimate_tokens
 
 app = FastAPI(
     title="Enterprise Structured Ingestion Firewall",
-    description="Classifies user messages and validates structured AI output.",
-    version="1.0.0",
+    description="Classifies messages and generates helpful Markdown responses.",
+    version="2.0.0",
 )
 
-# Simple local-development CORS configuration. Restrict this in production.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,18 +27,24 @@ def health_check():
     return {"status": "ok", "message": "Ingestion Firewall API is running"}
 
 
-@app.post("/api/analyze", response_model=IngestionResult)
+@app.post("/api/analyze")
 def analyze(request: IngestionRequest):
     message = request.message.strip()
+
     if not message:
         raise HTTPException(status_code=422, detail="Message cannot be empty.")
 
     try:
-        result = analyze_message(message)
-        # Add a local estimate for context budgeting. Provider-reported token
-        # counts may differ; this is not billed-usage accounting.
-        result.token_metadata.estimated_input_tokens = estimate_tokens(message)
-        return result
+        analysis: IngestionResult = analyze_message(message)
+        analysis.token_metadata.estimated_input_tokens = estimate_tokens(message)
+
+        markdown_response = generate_response(message, analysis)
+
+        return {
+            "analysis": analysis.model_dump(),
+            "response_markdown": markdown_response,
+        }
+
     except ValidationError as exc:
         raise HTTPException(
             status_code=502,
@@ -47,9 +53,14 @@ def analyze(request: IngestionRequest):
                 "validation_errors": exc.errors(),
             },
         ) from exc
+
     except Exception as exc:
-        # Keep the response simple; avoid exposing secrets or internal details.
+        # Avoid exposing API keys or internal exception details.
+        print(f"LLM request failed: {type(exc).__name__}: {exc}")
         raise HTTPException(
             status_code=502,
-            detail="LLM request failed. Check the API key, model name, network, and provider limits.",
+            detail=(
+                "LLM request failed. Check the backend terminal, API key, "
+                "model name, network, and provider limits."
+            ),
         ) from exc
