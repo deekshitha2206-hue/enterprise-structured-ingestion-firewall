@@ -103,3 +103,26 @@ enterprise-ingestion-firewall/
 │   └── README.md
 └── README.md
 ```
+## Week 3 — Conversation Memory & Chat History
+
+### Features Implemented
+- Created unique chat sessions using UUID.
+- Added temporary in-memory storage for conversation history.
+- Stored user and assistant messages with their roles.
+- Integrated conversation history with the Groq LLM.
+- Added a chat API endpoint: `POST /api/chat`.
+- Added a chat history endpoint: `GET /api/chat/{session_id}`.
+- Implemented session isolation so separate chats do not share history.
+- Added a New Chat option in the React frontend.
+
+### Testing
+- Verified conversation memory using follow-up questions.
+- Verified that new sessions do not access previous chat history.
+- Tested chat history retrieval.
+- Tested invalid session handling (404 response).
+- Added automated tests for chat memory and session isolation.
+
+**Backend Test Result:** 8 tests passed.
+
+### Note
+Chat history currently uses temporary in-memory storage. Session data is cleared when the backend restarts.
