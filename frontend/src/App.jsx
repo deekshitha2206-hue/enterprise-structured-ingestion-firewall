@@ -1,8 +1,13 @@
 
-
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
+
+// Backend URL comes from the Vite environment variable.
+// Local development uses http://127.0.0.1:8000 as the default.
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+).replace(/\/$/, '');
 
 function App() {
   const [activeTab, setActiveTab] = useState('chat');
@@ -33,7 +38,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/analyze', {
+      const response = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
@@ -69,7 +74,7 @@ function App() {
     setChatError('');
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +201,9 @@ function App() {
       {activeTab === 'analyze' && (
         <section className="analysis-panel">
           <h2>AI Response Generator</h2>
-          <p>Enter a message to detect its intent and generate an AI response.</p>
+          <p>
+            Enter a message to detect its intent and generate an AI response.
+          </p>
 
           <form onSubmit={handleAnalyze}>
             <label htmlFor="message">Your message</label>

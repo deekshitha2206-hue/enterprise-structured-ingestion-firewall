@@ -13,3 +13,7 @@ __pycache__/
 
 # Backup
 frontend-backup/
+
+.env
+.env.*
+!.env.example
