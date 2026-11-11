@@ -1,13 +1,14 @@
 
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
 
-// Backend URL comes from the Vite environment variable.
-// Local development uses http://127.0.0.1:8000 as the default.
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
+
+const SESSION_STORAGE_KEY = 'ingestion_firewall_session_id';
 
 function App() {
   const [activeTab, setActiveTab] = useState('chat');
@@ -18,12 +19,59 @@ function App() {
   const [analysisError, setAnalysisError] = useState('');
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
-  // Week 3 states
+  // Week 3 and Week 4 chat states
   const [chatMessage, setChatMessage] = useState('');
-  const [sessionId, setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(
+    () => localStorage.getItem(SESSION_STORAGE_KEY)
+  );
   const [history, setHistory] = useState([]);
   const [chatError, setChatError] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Restore previous conversation after browser refresh
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+
+    if (!savedSessionId) return;
+
+    let cancelled = false;
+
+    async function loadChatHistory() {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/chat/${savedSessionId}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error('Could not restore previous conversation.');
+        }
+
+        if (cancelled) return;
+
+        const savedHistory = Array.isArray(data)
+          ? data
+          : data.history || [];
+
+        setSessionId(savedSessionId);
+        setHistory(savedHistory);
+      } catch (err) {
+        if (cancelled) return;
+
+        console.error('Chat history loading failed:', err);
+        setChatError(
+          'Could not restore chat history. Please check the backend.'
+        );
+      }
+    }
+
+    loadChatHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleAnalyze(event) {
     event.preventDefault();
@@ -94,6 +142,13 @@ function App() {
       }
 
       setSessionId(data.session_id);
+
+      // Save the session ID in the browser
+      localStorage.setItem(
+        SESSION_STORAGE_KEY,
+        data.session_id
+      );
+
       setHistory(data.history || []);
       setChatMessage('');
     } catch (err) {
@@ -108,6 +163,9 @@ function App() {
     setHistory([]);
     setChatMessage('');
     setChatError('');
+
+    // Remove the previous session from browser storage
+    localStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
   return (
